@@ -5,6 +5,7 @@ import { PremiumProvider } from "./contexts/PremiumContext";
 import { PaywallModal } from "./components/Premium";
 import Home from "./pages/Home";
 import Pricing from "./pages/Pricing";
+import PaymentSuccess from "./pages/PaymentSuccess";
 import NotFound from "./pages/NotFound";
 
 // Free Tools
@@ -44,6 +45,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/pricing" element={<Pricing />} />
+            <Route path="/payment/success" element={<PaymentSuccess />} />
             {/* Free Tools */}
             <Route path="/json-formatter" element={<JsonFormatter />} />
             <Route path="/base64" element={<Base64Tool />} />

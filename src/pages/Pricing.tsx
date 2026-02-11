@@ -24,7 +24,7 @@ const PRO_FEATURES = [
 ];
 
 export default function Pricing() {
-  const { isPremium, setPremium } = usePremium();
+  const { isPremium } = usePremium();
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("yearly");
 
   const monthlyPrice = 4.99;
@@ -32,18 +32,29 @@ export default function Pricing() {
   const currentPrice = billingCycle === "monthly" ? monthlyPrice : yearlyPrice;
   const savings = Math.round((1 - yearlyPrice / monthlyPrice) * 100);
 
-  function handlePurchase() {
-    // TODO: Integrate with Stripe, Lemon Squeezy, or Gumroad
-    // For now, simulate premium activation
-    alert(
-      "Payment integration coming soon!\n\n" +
-      "To integrate payments, choose one of:\n" +
-      "• Stripe (stripe.com) — Most popular\n" +
-      "• Lemon Squeezy (lemonsqueezy.com) — Easy setup\n" +
-      "• Gumroad (gumroad.com) — Simplest\n\n" +
-      "For demo purposes, Premium has been activated."
-    );
-    setPremium(true);
+  const [loading, setLoading] = useState(false);
+
+  async function handlePurchase() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/create-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ billingCycle }),
+      });
+      const data = await res.json();
+
+      if (data.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
+      } else {
+        alert(data.error || "Erreur lors de la création du paiement. Vérifie la configuration Stripe.");
+      }
+    } catch {
+      alert("Erreur de connexion. Réessaie plus tard.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -159,9 +170,10 @@ export default function Pricing() {
             ) : (
               <button
                 onClick={handlePurchase}
-                className="mb-8 w-full rounded-lg bg-gradient-to-r from-primary-600 to-primary-700 py-3 text-sm font-semibold text-white shadow-lg hover:from-primary-700 hover:to-primary-800 transition-all"
+                disabled={loading}
+                className="mb-8 w-full rounded-lg bg-gradient-to-r from-primary-600 to-primary-700 py-3 text-sm font-semibold text-white shadow-lg hover:from-primary-700 hover:to-primary-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Upgrade to Pro
+                {loading ? "Redirection vers Stripe..." : "Upgrade to Pro"}
               </button>
             )}
 
