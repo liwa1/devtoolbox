@@ -1,8 +1,9 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 
 interface PremiumContextType {
   isPremium: boolean;
-  setPremium: (value: boolean) => void;
+  loading: boolean;
+  setPremium: (value: boolean, sessionId?: string) => void;
   showPaywall: () => void;
   paywallVisible: boolean;
   closePaywall: () => void;
@@ -10,6 +11,7 @@ interface PremiumContextType {
 
 const PremiumContext = createContext<PremiumContextType>({
   isPremium: false,
+  loading: true,
   setPremium: () => {},
   showPaywall: () => {},
   paywallVisible: false,
@@ -21,17 +23,57 @@ export function usePremium() {
 }
 
 export function PremiumProvider({ children }: { children: ReactNode }) {
-  const [isPremium, setIsPremium] = useState(() => {
-    return localStorage.getItem("devtoolbox_premium") === "true";
-  });
+  const [isPremium, setIsPremium] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [paywallVisible, setPaywallVisible] = useState(false);
 
-  useEffect(() => {
-    localStorage.setItem("devtoolbox_premium", isPremium.toString());
-  }, [isPremium]);
+  // On mount, verify the stored session with Stripe
+  const verifyPremium = useCallback(async () => {
+    const sessionId = localStorage.getItem("devtoolbox_session_id");
 
-  function setPremium(value: boolean) {
+    if (!sessionId) {
+      // No session stored → not premium
+      localStorage.removeItem("devtoolbox_premium");
+      setIsPremium(false);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/verify-session?session_id=${sessionId}`);
+      const data = await res.json();
+
+      if (data.success) {
+        setIsPremium(true);
+        localStorage.setItem("devtoolbox_premium", "true");
+      } else {
+        // Payment no longer valid
+        setIsPremium(false);
+        localStorage.removeItem("devtoolbox_premium");
+        localStorage.removeItem("devtoolbox_session_id");
+      }
+    } catch {
+      // Network error — use cached value as fallback
+      const cached = localStorage.getItem("devtoolbox_premium") === "true";
+      setIsPremium(cached);
+    }
+
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    verifyPremium();
+  }, [verifyPremium]);
+
+  function setPremium(value: boolean, sessionId?: string) {
     setIsPremium(value);
+    if (value && sessionId) {
+      localStorage.setItem("devtoolbox_premium", "true");
+      localStorage.setItem("devtoolbox_session_id", sessionId);
+    } else if (!value) {
+      localStorage.removeItem("devtoolbox_premium");
+      localStorage.removeItem("devtoolbox_session_id");
+    }
   }
 
   function showPaywall() {
@@ -43,7 +85,7 @@ export function PremiumProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <PremiumContext.Provider value={{ isPremium, setPremium, showPaywall, paywallVisible, closePaywall }}>
+    <PremiumContext.Provider value={{ isPremium, loading, setPremium, showPaywall, paywallVisible, closePaywall }}>
       {children}
     </PremiumContext.Provider>
   );

@@ -25,7 +25,7 @@ export default function PaymentSuccess() {
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
-          setPremium(true);
+          setPremium(true, sessionId);
           setEmail(data.customer_email);
           setStatus("success");
         } else {
